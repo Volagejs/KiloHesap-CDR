@@ -1,0 +1,10 @@
+# Derlenen/ikili dosyalar
+*.gms
+*.frx
+*.exd
+
+# Geçici dosyalar
+*.tmp
+~$*
+Thumbs.db
+desktop.ini

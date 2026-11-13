@@ -1,0 +1,17 @@
+{
+  "surum": 1,
+  "aciklama": "KiloHesap malzeme listesi. kalinlik = mm, yogunluk = g/cm3. Yeni malzeme eklemek icin bir satir kopyalayip degerleri degistirin. Degisiklik CorelDRAW yeniden acildiginda gecerli olur.",
+  "malzemeler": [
+    { "ad": "Pleksi", "kalinlik": 3.0, "yogunluk": 1.19 },
+    { "ad": "Pleksi", "kalinlik": 5.0, "yogunluk": 1.19 },
+    { "ad": "Pleksi", "kalinlik": 8.0, "yogunluk": 1.19 },
+    { "ad": "Pleksi", "kalinlik": 10.0, "yogunluk": 1.19 },
+    { "ad": "Dekota (MDF)", "kalinlik": 9.0, "yogunluk": 0.75 },
+    { "ad": "Dekota (MDF)", "kalinlik": 14.0, "yogunluk": 0.75 },
+    { "ad": "Dekota (MDF)", "kalinlik": 18.0, "yogunluk": 0.75 },
+    { "ad": "Krom", "kalinlik": 1.0, "yogunluk": 7.90 },
+    { "ad": "Aluminyum", "kalinlik": 2.0, "yogunluk": 2.70 },
+    { "ad": "Krom Yan Sac", "kalinlik": 0.6, "yogunluk": 7.90 },
+    { "ad": "Aluminyum Yan Sac", "kalinlik": 0.7, "yogunluk": 2.70 }
+  ]
+}
