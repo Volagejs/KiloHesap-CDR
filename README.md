@@ -24,15 +24,14 @@
    git clone https://github.com/Volagejs/KiloHesap-CDR.git
    ```
 2. `install\Kurulum.bat` dosyasına çift tıklayın.
-   Betik CorelDRAW sürümünüzü otomatik bulur ve dosyaları GMS klasörüne kopyalar.
-3. Açılan **KurulumRehberi.txt**'deki adımları uygulayın.
-   CorelDRAW, makroları dışarıdan otomatik import etmeye izin vermediği için
-   son adım VBA editöründe ~1 dakikalık elle içe aktarmadır:
-   - `Alt+F11` → VBA editörünü açın
-   - Project penceresinde **GlobalMacros** projesini seçin
-   - `File > Import File...` → `KiloHesap.bas` dosyasını seçin
-   - `File > Import File...` → `KiloHesapForm.frm` dosyasını seçin
-   - `File > Save` → GlobalMacros.gms kaydedilir
+   Betik CorelDRAW sürümünüzü otomatik bulur, dosyaları GMS klasörüne kopyalar
+   ve CorelDRAW COM üzerinden modülleri **otomatik import etmeyi dener**.
+3. Kurulumun sonunda açılan **KurulumRehberi.txt** size durumu söyler:
+   - **Otomatik kayıt başarılıysa** hiçbir şey yapmanız gerekmez.
+   - **Tek adım kaldıysa:** CorelDRAW'da `Alt+F11` → VBA editöründe `Ctrl+S` →
+     GlobalMacros.gms kaydedilir. Bu ~10 saniyelik tek elle adımdır.
+   - **Otomatik import olmadıysa:** rehberdeki elle import adımlarını uygulayın
+     (`File > Import File...` ile `KiloHesap.bas` ve `KiloHesapForm.frm`).
 4. CorelDRAW'da `Window > Dockers > Macro Manager` (veya `Alt+Shift+F11`) açın,
    listede **GlobalMacros > KiloHesapModul > KiloHesapGoster** makrosunu çift tıklayın.
    İsterseniz makroyu araç çubuğuna sürükleyip buton da yapabilirsiniz.

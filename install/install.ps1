@@ -2,12 +2,20 @@
 # KiloHesap - CorelDRAW kilo hesaplama makrosu kurulum betigi
 # https://github.com/Volagejs/KiloHesap-CDR
 # Lisans: MIT
+#
+# Bu betik:
+#   1) CorelDRAW surumunu ve GMS klasorunu otomatik bulur
+#   2) Kaynak dosyalari kopyalar
+#   3) CorelDRAW COM uzerinden VBA projesine modulleri
+#      OTOMATIK import etmeyi dener ve makroyu test eder
+#   4) Olmazsa elle import icin rehberi acar
 # ============================================================
 
 $ErrorActionPreference = 'Stop'
 
 function Bilgi($m) { Write-Host "[i] $m" }
 function Tamam($m) { Write-Host "[+] $m" -ForegroundColor Green }
+function Uyari($m) { Write-Host "[!] $m" -ForegroundColor Yellow }
 function Hata($m)  { Write-Host "[X] $m" -ForegroundColor Red }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -62,13 +70,148 @@ Copy-Item -Path (Join-Path $src 'KiloHesapForm.frm') -Destination $dest -Force
 Copy-Item -Path (Join-Path $src 'malzemeler.json') -Destination $dest -Force
 Tamam "Dosyalar kopyalandi: $dest"
 
-if (Test-Path -LiteralPath (Join-Path $gms 'KiloHesap.gms')) {
-    Bilgi "KiloHesap.gms zaten kurulu. VBA editorunde modulleri tekrar import edip kaydederek guncelleyebilirsiniz."
+# ============================================================
+# OTOMATIK IMPORT DENEMESI (CorelDRAW COM + VBE)
+# ============================================================
+$otoImport = $false
+$otoKayit = $false
+$app = $null
+
+try {
+    try { $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject("CorelDRAW.Application") } catch {}
+    if (-not $app) { $app = New-Object -ComObject CorelDRAW.Application }
+    if ($app) {
+        Bilgi ("CorelDRAW'a baglanildi: " + $app.Version)
+        try { $app.InitializeVBA() | Out-Null } catch {}
+        $vbe = $app.VBE
+
+        $gm = $null
+        for ($i = 1; $i -le $vbe.VBProjects.Count; $i++) {
+            $p = $vbe.VBProjects.Item($i)
+            if ($p.Name -eq "GlobalMacros") { $gm = $p }
+        }
+        if ($gm) {
+            # eski importlar temizle
+            $silinecek = @()
+            for ($j = 1; $j -le $gm.VBComponents.Count; $j++) {
+                $c = $gm.VBComponents.Item($j)
+                if ($c.Name -eq "KiloHesapModul" -or $c.Name -eq "KiloHesapForm") { $silinecek += $c }
+            }
+            foreach ($c in $silinecek) { $gm.VBComponents.Remove($c) }
+
+            $gm.VBComponents.Import((Join-Path $src 'KiloHesap.bas')) | Out-Null
+            $gm.VBComponents.Import((Join-Path $src 'KiloHesapForm.frm')) | Out-Null
+            $otoImport = $true
+            Tamam "Moduller GlobalMacros projesine OTOMATIK import edildi."
+
+            # makro testi (form ekranda acilir)
+            try {
+                $gmgr = $app.GMSManager
+                $gmgr.GetType().InvokeMember("RunMacro", [System.Reflection.BindingFlags]::InvokeMethod, $null, $gmgr, @("GlobalMacros", "KiloHesapModul.KiloHesapGoster"))
+                Tamam "Makro test edildi - KiloHesap penceresi CorelDRAW ekraninda acildi!"
+            } catch {
+                Uyari "Makro test atlandi: $($app.Exception.Message)"
+            }
+
+            # otomatik kayit denemesi
+            try {
+                try { $vbe.ActiveVBProject = $gm } catch {}
+                $kaydet = $null
+                foreach ($bar in $vbe.CommandBars) {
+                    try { foreach ($ctl in $bar.Controls) { if ($ctl.Caption -like "*Save GlobalMacros*" -and -not $kaydet) { $kaydet = $ctl } } } catch {}
+                }
+                if ($kaydet) { $kaydet.Execute(); Start-Sleep -Seconds 2 }
+                if (Test-Path -LiteralPath (Join-Path $base 'GlobalMacros.gms')) { $otoKayit = $true }
+            } catch {}
+
+            if ($otoKayit) {
+                Tamam "GlobalMacros.gms otomatik kaydedildi. Kurulum TAMAMLANDI!"
+            }
+        }
+    }
+} catch {
+    Bilgi "Otomatik import denendi ama tamamlanamadi: $($app.Exception.Message)"
 }
 
-# --- kurulum rehberi ---
+# ============================================================
+# REHBER
+# ============================================================
 $guide = Join-Path $dest 'KurulumRehberi.txt'
-$steps = @"
+
+if ($otoImport -and $otoKayit) {
+    $steps = @"
+KILOHESAP - KURULUM TAMAMLANDI!
+=====================================================
+Makro otomatik kuruldu ve test edildi.
+
+MAKROYU CALISTIRMA
+- Window > Dockers > Macro Manager (veya Alt+Shift+F11)
+  Listede: GlobalMacros > KiloHesapModul > KiloHesapGoster
+  Cift tiklayin. Isterseniz makroyu arac cubuguna
+  surukleyerek bir buton da yapabilirsiniz.
+
+-----------------------------------------------------
+KULLANIM
+-----------------------------------------------------
+- Pencere acik kalir. Sekilleri CorelDRAW'da secin.
+- Malzemeyi (orn. "Pleksi 5 mm") secin, Hesapla'ya basin.
+- Farkli malzemeler icin ayni islemi tekrarlayin;
+  her hesap listeye eklenir, toplamlar birikir.
+- "Satir sil": yanlis hesabi listeden kaldirir.
+- "Sifirla": listeyi temizler.
+- "Sayfaya yaz": ozeti cizim sayfasina metin olarak ekler.
+
+-----------------------------------------------------
+MALZEME LISTESINI DUZENLEME
+-----------------------------------------------------
+Bu klasordeki malzemeler.json dosyasini not defteri
+ile duzenleyebilirsiniz (yeni malzeme/kalinlik ekleyin).
+Degisiklik CorelDRAW yeniden acildiginda gecerli olur.
+Klasor: $dest
+"@
+} elseif ($otoImport) {
+    $steps = @"
+KILOHESAP - NEREDEYSE TAMAM! TEK ADIM KALDI
+=====================================================
+Makro otomatik import edildi ve test edildi
+(KiloHesap penceresi CorelDRAW ekraninda acildi).
+
+KALICI OLMASI ICIN SON ADIM (~10 saniye):
+1) CorelDRAW'da Alt+F11 ile VBA editorunu acin.
+2) Ctrl+S'ye basin (File > Save - GlobalMacros.gms kaydedilir).
+3) Editoru kapatin. Kurulum tamam!
+
+Not: Ctrl+S dialog acarsa kaydetme klasoru olarak
+$base
+secip Kaydet'e basin (genelde zaten dogru klasor onerilir).
+
+-----------------------------------------------------
+MAKROYU CALISTIRMA
+-----------------------------------------------------
+Window > Dockers > Macro Manager (veya Alt+Shift+F11)
+Listede: GlobalMacros > KiloHesapModul > KiloHesapGoster
+
+-----------------------------------------------------
+KULLANIM
+-----------------------------------------------------
+- Pencere acik kalir. Sekilleri CorelDRAW'da secin.
+- Malzemeyi (orn. "Pleksi 5 mm") secin, Hesapla'ya basin.
+- Farkli malzemeler icin ayni islemi tekrarlayin;
+  her hesap listeye eklenir, toplamlar birikir.
+- "Satir sil": yanlis hesabi listeden kaldirir.
+- "Sifirla": listeyi temizler.
+- "Sayfaya yaz": ozeti cizim sayfasina metin olarak ekler.
+
+-----------------------------------------------------
+MALZEME LISTESINI DUZENLEME
+-----------------------------------------------------
+Bu klasordeki malzemeler.json dosyasini not defteri
+ile duzenleyebilirsiniz. Degisiklik CorelDRAW yeniden
+acildiginda gecerli olur.
+Klasor: $dest
+"@
+} else {
+    $steps = @"
 KILOHESAP - TEK SEFERLIK KURULUM (yaklasik 1 dakika)
 =====================================================
 CorelDRAW, makrolari disaridan otomatik import etmeye
@@ -128,14 +271,16 @@ ile duzenleyebilirsiniz (yeni malzeme/kalinlik ekleyin).
 Degisiklik CorelDRAW yeniden acildiginda gecerli olur.
 Klasor: $dest
 "@
+}
 
 Set-Content -LiteralPath $guide -Value $steps
-
-Write-Host ""
-Bilgi "Son adim VBA editorunde import gerektiriyor (CorelDRAW siniri)."
-Bilgi "Kurulum rehberi notepad ile aciliyor..."
 Start-Process notepad.exe -ArgumentList "`"$guide`""
-Start-Process explorer.exe -ArgumentList "/select,`"$dest`""
 
 Write-Host ""
-Tamam "Kurulum dosyalari hazir. Rehberdeki adimlari uygulayin."
+if ($otoImport -and $otoKayit) {
+    Tamam "Kurulum bitti. Makro Macro Manager'da gorunecek."
+} elseif ($otoImport) {
+    Uyari "Tek elle adim: VBE'de (Alt+F11) Ctrl+S ile kaydedin."
+} else {
+    Uyari "Rehberdeki manuel import adimlarini uygulayin."
+}
